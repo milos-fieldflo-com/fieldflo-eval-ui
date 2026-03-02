@@ -1,0 +1,116 @@
+.sessions-page {
+  max-width: 1400px;
+}
+
+.sessions-table-wrapper {
+  background: var(--ff-white);
+  border-radius: var(--ff-border-radius);
+  border: 1px solid var(--ff-teal);
+  overflow: hidden;
+}
+
+.sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sessions-table thead th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ff-dark-gray);
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 2px solid var(--ff-teal);
+  white-space: nowrap;
+}
+
+.sessions-table tbody tr {
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.1s;
+}
+
+.sessions-table tbody tr:hover {
+  background-color: rgba(118, 192, 199, 0.06);
+}
+
+.sessions-table tbody td {
+  padding: 10px 16px;
+  vertical-align: middle;
+}
+
+.sessions-video-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sessions-thumbnail {
+  width: 48px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.sessions-thumbnail-placeholder {
+  width: 48px;
+  height: 36px;
+  border-radius: 4px;
+  background: var(--ff-light-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ff-light-gray);
+  flex-shrink: 0;
+}
+
+.sessions-video-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ff-near-black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.sessions-id-cell {
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  color: var(--ff-body-gray);
+}
+
+/* Score pill */
+.score-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--ff-border-radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 32px;
+}
+
+.score-pill-na {
+  background-color: var(--ff-light-bg);
+  color: var(--ff-light-gray);
+}
+
+.sessions-view-btn {
+  display: inline-block;
+  padding: 4px 16px;
+  border-radius: var(--ff-border-radius-pill);
+  background-color: var(--ff-teal);
+  color: #000;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+
+.sessions-view-btn:hover {
+  background-color: #5EADB5;
+  color: #000;
+}

@@ -1,0 +1,26 @@
+.topbar {
+  background-color: var(--ff-white);
+  border-bottom: 2px solid var(--ff-teal);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar-content {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.topbar-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ff-near-black);
+}
+
+.topbar-subtitle {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ff-body-gray);
+}
