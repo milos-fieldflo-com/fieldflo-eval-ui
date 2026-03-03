@@ -6,3 +6,5 @@ __pycache__/
 backend/.venv/
 backend/uv.lock
 .vite/
+.env
+backend/.env

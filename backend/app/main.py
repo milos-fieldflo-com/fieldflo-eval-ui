@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import resources, sessions
+from .routers import resources, sessions, traces
 
 app = FastAPI(title="FieldFlo Evals UI", version="0.1.0")
 
@@ -16,6 +16,7 @@ app.add_middleware(
 
 app.include_router(sessions.router)
 app.include_router(resources.router)
+app.include_router(traces.router)
 
 
 @app.get("/api/v1/health")

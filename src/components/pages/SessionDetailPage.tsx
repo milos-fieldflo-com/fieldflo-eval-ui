@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { getSession } from '../../api/client'
+import { getEvaluation } from '../../api/client'
 import type { SessionDetail } from '../../api/types'
 import { RubricPanel } from '../evaluation/RubricPanel'
 import { TaskCard, type TaskObject } from '../evaluation/TaskCard'
@@ -101,7 +101,7 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     if (!sessionId) return
-    getSession(sessionId)
+    getEvaluation(sessionId)
       .then(setSession)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))

@@ -3,18 +3,22 @@ import { Sidebar } from './components/common/Sidebar'
 import { Topbar } from './components/common/Topbar'
 import { SessionsPage } from './components/pages/SessionsPage'
 import { SessionDetailPage } from './components/pages/SessionDetailPage'
+import { TracesPage } from './components/pages/TracesPage'
 
 function App() {
   const location = useLocation()
 
   const getTopbar = () => {
+    if (location.pathname === '/evaluations') {
+      return { title: 'Evaluations', subtitle: 'Browse evaluation results' }
+    }
+    if (location.pathname.startsWith('/evaluations/')) {
+      return { title: 'Evaluation Detail', subtitle: 'Evaluation results and evidence' }
+    }
     if (location.pathname === '/sessions') {
-      return { title: 'Eval Sessions', subtitle: 'Browse evaluation results' }
+      return { title: 'Sessions', subtitle: 'Langfuse JHA chat sessions' }
     }
-    if (location.pathname.startsWith('/sessions/')) {
-      return { title: 'Session Detail', subtitle: 'Evaluation results and evidence' }
-    }
-    return { title: 'Eval Sessions', subtitle: '' }
+    return { title: 'FieldFlo Evals', subtitle: '' }
   }
 
   const topbar = getTopbar()
@@ -26,9 +30,10 @@ function App() {
         <Topbar title={topbar.title} subtitle={topbar.subtitle} />
         <main className="app-main">
           <Routes>
-            <Route path="/" element={<Navigate to="/sessions" replace />} />
-            <Route path="/sessions" element={<SessionsPage />} />
-            <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
+            <Route path="/" element={<Navigate to="/evaluations" replace />} />
+            <Route path="/evaluations" element={<SessionsPage />} />
+            <Route path="/evaluations/:sessionId" element={<SessionDetailPage />} />
+            <Route path="/sessions" element={<TracesPage />} />
           </Routes>
         </main>
       </div>

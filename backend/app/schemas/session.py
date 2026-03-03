@@ -27,6 +27,10 @@ class SessionSummary(BaseModel):
     evaluated_at: str = ""
     scores: SessionScores = SessionScores()
     thumbnail_url: Optional[str] = None
+    trace_id: Optional[str] = None
+    run_status: Optional[str] = None  # "running" | "completed" | "failed" | None
+    judges_completed: Optional[int] = None
+    judges_total: Optional[int] = None
 
 
 class TranscriptData(BaseModel):

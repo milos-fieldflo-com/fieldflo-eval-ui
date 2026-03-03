@@ -82,6 +82,16 @@ export interface SessionSummary {
   evaluated_at: string
   scores: SessionScores
   thumbnail_url: string | null
+  trace_id: string | null
+  run_status: 'running' | 'completed' | 'failed' | null
+  judges_completed: number | null
+  judges_total: number | null
+}
+
+export interface RunEvalResponse {
+  eval_session_id: string
+  status: string
+  message: string
 }
 
 export interface TranscriptData {
@@ -101,6 +111,69 @@ export interface FormTask {
   control: string
   risk: string
 }
+
+// --- Langfuse Sessions ---
+
+export interface LangfuseSessionSummary {
+  id: string
+  name: string | null
+  timestamp: string | null
+  user_id: string | null
+  session_id: string | null
+  release: string | null
+  version: string | null
+  tags: string[]
+  latency: number | null
+  total_cost: number | null
+  input_preview: string | null
+  output_preview: string | null
+  can_eval: boolean
+  eval_session_id: string | null
+  run_status: 'running' | 'completed' | 'failed' | null
+  judges_completed: number | null
+  judges_total: number | null
+}
+
+export interface LangfuseSessionDetail {
+  id: string
+  name: string | null
+  timestamp: string | null
+  user_id: string | null
+  session_id: string | null
+  release: string | null
+  version: string | null
+  tags: string[]
+  metadata: unknown
+  latency: number | null
+  total_cost: number | null
+  input: unknown
+  output: unknown
+  observations: unknown[]
+  scores: unknown[]
+}
+
+// --- Eval Status ---
+
+export interface JudgeStatus {
+  judge_name: string
+  display_name: string
+  status: 'pending' | 'running' | 'completed' | 'error'
+  score: number | null
+  error: string | null
+  started_at: string | null
+  completed_at: string | null
+}
+
+export interface EvalStatusDetail {
+  eval_session_id: string
+  trace_id: string
+  run_status: string
+  started_at: string | null
+  elapsed_seconds: number | null
+  judges: JudgeStatus[]
+}
+
+// --- Session Detail ---
 
 export interface SessionDetail {
   id: string

@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: ..            # ms/ directory — needs access to both evals-ui/ and evals/
+      dockerfile: evals-ui/backend/Dockerfile
+    ports:
+      - "3101:3101"
+    env_file:
+      - backend/.env
+    volumes:
+      - ../evals/resources/data:/app/evals/resources/data:ro
+      - ../evals/resources/jha_json:/app/evals/resources/jha_json:ro
+    environment:
+      - PROJECT_ROOT=/app
+
+  frontend:
+    build:
+      context: ..            # ms/ directory
+      dockerfile: evals-ui/Dockerfile
+    ports:
+      - "3100:3100"
+    depends_on:
+      - backend
