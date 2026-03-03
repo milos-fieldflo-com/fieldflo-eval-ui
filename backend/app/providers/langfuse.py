@@ -14,6 +14,7 @@ from typing import Any, Optional
 from langfuse import Langfuse
 
 from ..config import settings
+from ..services import s3 as s3_service
 from ..schemas.eval import (
     CompletenessResult,
     FormCompletenessResult,
@@ -132,7 +133,13 @@ def _extract_score(output: Any) -> int | None:
 
 
 def _parse_output(raw: Any, cls: type) -> Any | None:
-    """Parse a generation output (string or dict) into a Pydantic model."""
+    """Parse a generation output (string or dict) into a Pydantic model.
+
+    Gemini sometimes returns truncated JSON strings.  When strict parsing
+    fails we fall back to ``json.loads`` on a best-effort repaired copy,
+    then to a regex extraction of the top-level scalar fields so the
+    detail page still shows scores even if the items array is cut off.
+    """
     if raw is None:
         return None
     try:
@@ -141,7 +148,25 @@ def _parse_output(raw: Any, cls: type) -> Any | None:
         if isinstance(raw, dict):
             return cls.model_validate(raw)
     except Exception:
-        logger.warning("Failed to parse %s output", cls.__name__, exc_info=True)
+        # Strict parse failed — try fallbacks for truncated JSON strings
+        if isinstance(raw, str):
+            # 1) Try json.loads (handles some edge cases model_validate_json rejects)
+            try:
+                data = json.loads(raw)
+                return cls.model_validate(data)
+            except Exception:
+                pass
+            # 2) Regex-extract top-level scalar fields and build a minimal dict
+            try:
+                data: dict[str, Any] = {}
+                for m in re.finditer(r'"(\w+)"\s*:\s*([0-9]+(?:\.[0-9]+)?)', raw):
+                    key, val = m.group(1), m.group(2)
+                    data[key] = float(val) if "." in val else int(val)
+                if data:
+                    return cls.model_validate(data)
+            except Exception:
+                pass
+        logger.warning("Failed to parse %s output", cls.__name__)
     return None
 
 
@@ -284,15 +309,28 @@ class LangfuseProvider(DataProvider):
             vk = str((trace.metadata or {}).get("video_key", "") or "")
             if not vk:
                 return None
-            video_path, thumb_path = resolve_video_key(vk, dir_idx)
-            if not video_path:
-                return None
+
             eval_session_id = f"eval_{trace.id}"
-            video_name = video_path.name if video_path else Path(vk).name
-            thumb_url = (
-                f"/api/v1/resources/{eval_session_id}/thumbnail"
-                if thumb_path else None
-            )
+
+            if settings.s3_bucket:
+                if not s3_service.head_object(vk):
+                    return None
+                video_name = Path(vk).name
+                thumb_key = s3_service.find_thumbnail_key(vk)
+                thumb_url = (
+                    f"/api/v1/resources/{eval_session_id}/thumbnail"
+                    if thumb_key else None
+                )
+            else:
+                video_path, thumb_path = resolve_video_key(vk, dir_idx)
+                if not video_path:
+                    return None
+                video_name = video_path.name if video_path else Path(vk).name
+                thumb_url = (
+                    f"/api/v1/resources/{eval_session_id}/thumbnail"
+                    if thumb_path else None
+                )
+
             ts = str(trace.timestamp) if trace.timestamp else ""
             return {
                 "trace_id": trace.id,
@@ -464,10 +502,15 @@ class LangfuseProvider(DataProvider):
 
         if jha_trace:
             vk = str((jha_trace.metadata or {}).get("video_key", "") or "")
-            video_path, _ = self._resolve_video_key(vk)
-            video_name = video_path.name if video_path else Path(vk).name if vk else ""
-            if video_path:
-                video_url = f"/api/v1/resources/{session_id}/video"
+            if settings.s3_bucket:
+                video_name = Path(vk).name if vk else ""
+                if vk and s3_service.head_object(vk):
+                    video_url = f"/api/v1/resources/{session_id}/video"
+            else:
+                video_path, _ = self._resolve_video_key(vk)
+                video_name = video_path.name if video_path else Path(vk).name if vk else ""
+                if video_path:
+                    video_url = f"/api/v1/resources/{session_id}/video"
 
             model = str((jha_trace.metadata or {}).get("model_name", "") or "")
             if jha_trace.timestamp:
@@ -569,3 +612,17 @@ class LangfuseProvider(DataProvider):
             return None
         _, thumb_path = self._resolve_video_key(vk)
         return thumb_path
+
+    def get_video_s3_key(self, session_id: str) -> str | None:
+        vk = self._get_video_key_for_session(session_id)
+        if not vk:
+            return None
+        if s3_service.head_object(vk):
+            return vk
+        return None
+
+    def get_thumbnail_s3_key(self, session_id: str) -> str | None:
+        vk = self._get_video_key_for_session(session_id)
+        if not vk:
+            return None
+        return s3_service.find_thumbnail_key(vk)

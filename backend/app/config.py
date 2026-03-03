@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     langfuse_public_key: Optional[str] = None
     langfuse_secret_key: Optional[str] = None
     langfuse_base_url: str = "https://us.cloud.langfuse.com"
+    # S3 — when set, videos are served from S3 instead of local disk
+    s3_bucket: Optional[str] = None
 
 
 settings = Settings()

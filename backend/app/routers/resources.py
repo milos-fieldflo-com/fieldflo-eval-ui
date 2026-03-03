@@ -2,10 +2,12 @@ import mimetypes
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 
+from ..config import settings
 from ..providers.langfuse import LangfuseProvider
+from ..services import s3 as s3_service
 
 router = APIRouter(prefix="/api/v1/resources", tags=["resources"])
 provider = LangfuseProvider()
@@ -32,7 +34,13 @@ def get_video_mapping(session_id: str) -> VideoKeyMapping:
 
 
 @router.get("/{session_id}/video")
-def get_video(session_id: str) -> FileResponse:
+def get_video(session_id: str):
+    if settings.s3_bucket:
+        key = provider.get_video_s3_key(session_id)
+        if not key:
+            raise HTTPException(status_code=404, detail="Video not found")
+        url = s3_service.generate_presigned_url(key)
+        return RedirectResponse(url)
     path = provider.get_video_path(session_id)
     if not path:
         raise HTTPException(status_code=404, detail="Video not found")
@@ -41,7 +49,13 @@ def get_video(session_id: str) -> FileResponse:
 
 
 @router.get("/{session_id}/thumbnail")
-def get_thumbnail(session_id: str) -> FileResponse:
+def get_thumbnail(session_id: str):
+    if settings.s3_bucket:
+        key = provider.get_thumbnail_s3_key(session_id)
+        if not key:
+            raise HTTPException(status_code=404, detail="Thumbnail not found")
+        url = s3_service.generate_presigned_url(key)
+        return RedirectResponse(url)
     path = provider.get_thumbnail_path(session_id)
     if not path:
         raise HTTPException(status_code=404, detail="Thumbnail not found")

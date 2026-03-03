@@ -18,6 +18,7 @@ from ..providers.langfuse import (
     _extract_score,
     resolve_video_key,
 )
+from ..services import s3 as s3_service
 from ..services.eval_runner import eval_runner
 from ._time_range import parse_from_timestamp
 
@@ -143,10 +144,13 @@ def list_langfuse_sessions(
 
     results: list[LangfuseSessionSummary] = []
     for t in response.data:
-        # Check if video resolves locally
+        # Check if video resolves (S3 or local)
         vk = str((t.metadata or {}).get("video_key", "") or "")
-        video_path, _ = resolve_video_key(vk, dir_idx) if vk else (None, None)
-        can_eval = video_path is not None
+        if settings.s3_bucket:
+            can_eval = bool(vk) and s3_service.head_object(vk)
+        else:
+            video_path, _ = resolve_video_key(vk, dir_idx) if vk else (None, None)
+            can_eval = video_path is not None
 
         eval_session_id = f"eval_{t.id}" if can_eval else None
 
