@@ -22,10 +22,15 @@ async function fetchApi<T>(
   if (!response.ok) {
     let detail: string | undefined
     try {
-      const errorData = await response.json()
-      detail = errorData.detail || JSON.stringify(errorData)
+      const text = await response.text()
+      try {
+        const errorData = JSON.parse(text)
+        detail = errorData.detail || JSON.stringify(errorData)
+      } catch {
+        detail = text
+      }
     } catch {
-      detail = await response.text()
+      detail = `HTTP ${response.status}`
     }
     throw new ApiError(
       `API error: ${response.status} ${response.statusText}`,

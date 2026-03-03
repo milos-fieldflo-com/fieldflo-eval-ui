@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -9,11 +10,14 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def _find_project_root() -> Path:
-    """Walk up from this file to find the real ms/ project root.
+    """Find the project root (ms/).
 
-    Works in both the normal repo layout and git worktrees by looking
-    for the evals/ directory as a landmark.
+    Uses PROJECT_ROOT env var if set (e.g. in Docker), otherwise walks up
+    from this file looking for evals/resources as a landmark.
     """
+    env_root = os.environ.get("PROJECT_ROOT")
+    if env_root:
+        return Path(env_root)
     candidate = Path(__file__).resolve().parent.parent  # backend/
     for _ in range(8):
         candidate = candidate.parent

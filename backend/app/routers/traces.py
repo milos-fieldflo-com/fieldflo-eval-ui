@@ -128,9 +128,8 @@ def list_langfuse_sessions(
             run = all_runs.get(eval_session_id)
             if run:
                 run_status = run.status.value
-                if run.status.value == "running":
-                    # Check Langfuse for partial judge results
-                    # Count distinct judge types that have scores
+                # Count completed judges for any active run (running, completed, or failed)
+                try:
                     judge_traces = lf.api.trace.list(
                         session_id=eval_session_id, limit=20
                     )
@@ -141,6 +140,9 @@ def list_langfuse_sessions(
                             if _extract_score(output) is not None:
                                 seen_judges.add(jt.name)
                     judges_completed = len(seen_judges)
+                    judges_total = 4
+                except Exception:
+                    judges_completed = 0
                     judges_total = 4
 
         results.append(

@@ -46,21 +46,20 @@ def list_evaluations(time_range: str | None = "7d") -> list[SessionSummary]:
         run = all_runs.get(base_id)
         if run:
             session.run_status = run.status.value
-            if run.status.value == "running":
-                # Check Langfuse for partial judge results
-                scores = provider.get_session_scores(base_id)
-                completed = sum(
-                    1 for v in [
-                        scores.groundedness,
-                        scores.completeness,
-                        scores.form_groundedness,
-                        scores.form_completeness,
-                    ] if v is not None
-                )
-                session.judges_completed = completed
-                session.judges_total = 4
-                # Update scores with any partial results
-                session.scores = scores
+            # Always overlay fresh scores when a run exists (Langfuse
+            # indexing can lag behind the subprocess finishing).
+            scores = provider.get_session_scores(base_id)
+            completed = sum(
+                1 for v in [
+                    scores.groundedness,
+                    scores.completeness,
+                    scores.form_groundedness,
+                    scores.form_completeness,
+                ] if v is not None
+            )
+            session.judges_completed = completed
+            session.judges_total = 4
+            session.scores = scores
 
     return sessions
 

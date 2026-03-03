@@ -61,6 +61,10 @@ class EvalRunManager:
         if settings.langfuse_base_url:
             env["LANGFUSE_HOST"] = settings.langfuse_base_url
 
+        gemini_key = os.environ.get("GEMINI_API_KEY", "")
+        if gemini_key:
+            env["GEMINI_API_KEY"] = gemini_key
+
         cmd = [
             "uv", "run", "python", "run_evals_langfuse.py",
             "--trace-id", trace_id,

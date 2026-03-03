@@ -382,7 +382,6 @@ export function TracesPage() {
   const [timeRange, setTimeRange] = useState('7d')
   const [evaluableOnly, setEvaluableOnly] = useState(false)
   const [runningTraces, setRunningTraces] = useState<Set<string>>(new Set())
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedIsRunning, setSelectedIsRunning] = useState(false)
@@ -405,28 +404,38 @@ export function TracesPage() {
     fetchSessions().finally(() => setLoading(false))
   }, [fetchSessions])
 
+  // When backend confirms a run is no longer "running", remove from optimistic set
+  useEffect(() => {
+    const confirmed = new Set<string>()
+    for (const s of sessions) {
+      if (s.run_status && s.run_status !== 'running' && runningTraces.has(s.id)) {
+        confirmed.add(s.id)
+      }
+    }
+    if (confirmed.size > 0) {
+      setRunningTraces((prev) => {
+        const next = new Set(prev)
+        for (const id of confirmed) next.delete(id)
+        return next
+      })
+    }
+  }, [sessions]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Polling: when any trace has a running eval, re-fetch every 5 seconds
   useEffect(() => {
     const hasRunning = sessions.some(
       (s) => s.run_status === 'running' || runningTraces.has(s.id)
     )
 
-    if (hasRunning && !pollRef.current) {
-      pollRef.current = setInterval(() => {
-        fetchSessions()
-      }, 5000)
-    } else if (!hasRunning && pollRef.current) {
-      clearInterval(pollRef.current)
-      pollRef.current = null
-      setRunningTraces(new Set())
+    if (!hasRunning) {
+      return // no cleanup needed, no interval to create
     }
 
-    return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current)
-        pollRef.current = null
-      }
-    }
+    const interval = setInterval(() => {
+      fetchSessions()
+    }, 5000)
+
+    return () => clearInterval(interval)
   }, [sessions, fetchSessions, runningTraces])
 
   const handleRun = async (e: React.MouseEvent, traceId: string) => {
@@ -446,11 +455,7 @@ export function TracesPage() {
   }
 
   const isRunning = (t: LangfuseSessionSummary) => {
-    const processRunning = t.run_status === 'running' || runningTraces.has(t.id)
-    if (!processRunning) return false
-    // Show normal state once all judges are complete, even if subprocess is still running
-    const allJudgesComplete = t.judges_total != null && t.judges_completed === t.judges_total
-    return !allJudgesComplete
+    return t.run_status === 'running' || runningTraces.has(t.id)
   }
 
   const openDetail = (trace: LangfuseSessionSummary) => {
