@@ -380,7 +380,7 @@ export function TracesPage() {
   const [error, setError] = useState<string | null>(null)
   const [filterMode, setFilterMode] = useState<FilterMode>('jha-chat')
   const [timeRange, setTimeRange] = useState('7d')
-  const [evaluableOnly, setEvaluableOnly] = useState(false)
+  const [evaluableOnly, setEvaluableOnly] = useState(true)
   const [runningTraces, setRunningTraces] = useState<Set<string>>(new Set())
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
