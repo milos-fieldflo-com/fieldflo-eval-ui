@@ -34,9 +34,15 @@ class EvalStatusEntry(BaseModel):
 # --- Endpoints ---
 
 @router.get("", response_model=list[SessionSummary])
-def list_evaluations(time_range: str | None = "7d") -> list[SessionSummary]:
+def list_evaluations(time_range: str | None = "7d", refresh: bool = False) -> list[SessionSummary]:
     from_ts = parse_from_timestamp(time_range)
-    sessions = provider.list_sessions(from_timestamp=from_ts, time_range=time_range or "all")
+    # Skip cache when eval runs exist so new scores appear promptly
+    has_active_runs = bool(eval_runner.get_all_runs())
+    sessions = provider.list_sessions(
+        from_timestamp=from_ts,
+        time_range=time_range or "all",
+        refresh=refresh or has_active_runs,
+    )
 
     # Overlay running state from eval_runner
     all_runs = eval_runner.get_all_runs()
@@ -111,8 +117,8 @@ def run_evaluation(req: RunEvalRequest) -> RunEvalResponse:
 
 
 @router.get("/{session_id}", response_model=SessionDetail)
-def get_evaluation(session_id: str) -> SessionDetail:
-    session = provider.get_session(session_id)
+def get_evaluation(session_id: str, refresh: bool = False) -> SessionDetail:
+    session = provider.get_session(session_id, refresh=refresh)
     if not session:
         raise HTTPException(status_code=404, detail="Evaluation not found")
     return session

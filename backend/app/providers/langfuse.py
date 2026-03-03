@@ -171,20 +171,24 @@ class _CacheEntry:
 
 
 class LangfuseProvider(DataProvider):
-    _LIST_SESSIONS_TTL = 30  # seconds
+    _CACHE_TTL = 3600  # seconds (1 hour)
 
     def __init__(self) -> None:
         self._lf = Langfuse(
             public_key=settings.langfuse_public_key,
             secret_key=settings.langfuse_secret_key,
             host=settings.langfuse_base_url,
-            timeout=30,
+            timeout=90,
         )
         self._dir_index: dict[str, Path] | None = None
         self._list_sessions_cache: dict[str, _CacheEntry] = {}
+        self._session_detail_cache: dict[str, _CacheEntry] = {}
+        self._session_scores_cache: dict[str, _CacheEntry] = {}
 
     def invalidate_cache(self) -> None:
         self._list_sessions_cache.clear()
+        self._session_detail_cache.clear()
+        self._session_scores_cache.clear()
 
     @property
     def dir_index(self) -> dict[str, Path]:
@@ -209,8 +213,13 @@ class LangfuseProvider(DataProvider):
     # get_session_scores — check Langfuse for judge traces on a session
     # ------------------------------------------------------------------
 
-    def get_session_scores(self, session_id: str) -> SessionScores:
+    def get_session_scores(self, session_id: str, refresh: bool = False) -> SessionScores:
         """Query Langfuse for judge traces for a session, returning partial scores."""
+        if not refresh:
+            cached = self._session_scores_cache.get(session_id)
+            if cached and cached.valid:
+                return cached.data
+
         try:
             judge_traces = self._lf.api.trace.list(
                 session_id=session_id, limit=100
@@ -229,12 +238,14 @@ class LangfuseProvider(DataProvider):
             if score is not None:
                 scores[key] = score
 
-        return SessionScores(
+        result = SessionScores(
             groundedness=scores.get("groundedness"),
             completeness=scores.get("completeness"),
             form_groundedness=scores.get("form_groundedness"),
             form_completeness=scores.get("form_completeness"),
         )
+        self._session_scores_cache[session_id] = _CacheEntry(result, self._CACHE_TTL)
+        return result
 
     # ------------------------------------------------------------------
     # list_sessions — unified view of all jha-chat traces with local video
@@ -245,6 +256,7 @@ class LangfuseProvider(DataProvider):
         from_timestamp: datetime | None = None,
         evaluated_only: bool = True,
         time_range: str = "7d",
+        refresh: bool = False,
     ) -> list[SessionSummary]:
         ts_kwargs: dict[str, Any] = {}
         if from_timestamp:
@@ -252,9 +264,10 @@ class LangfuseProvider(DataProvider):
 
         # Check cache (key on time_range string, not the computed datetime)
         cache_key = f"{time_range}:{evaluated_only}"
-        cached = self._list_sessions_cache.get(cache_key)
-        if cached and cached.valid:
-            return cached.data
+        if not refresh:
+            cached = self._list_sessions_cache.get(cache_key)
+            if cached and cached.valid:
+                return cached.data
 
         # 1) Fetch all jha-chat video traces
         jha_traces = _fetch_all_traces(
@@ -408,22 +421,39 @@ class LangfuseProvider(DataProvider):
 
         summaries.sort(key=lambda s: s.evaluated_at, reverse=True)
 
-        self._list_sessions_cache[cache_key] = _CacheEntry(summaries, self._LIST_SESSIONS_TTL)
+        self._list_sessions_cache[cache_key] = _CacheEntry(summaries, self._CACHE_TTL)
         return summaries
 
     # ------------------------------------------------------------------
     # get_session
     # ------------------------------------------------------------------
 
-    def get_session(self, session_id: str) -> SessionDetail | None:
+    def get_session(self, session_id: str, refresh: bool = False) -> SessionDetail | None:
+        if not refresh:
+            cached = self._session_detail_cache.get(session_id)
+            if cached and cached.valid:
+                return cached.data
+
         trace_id = session_id.removeprefix("eval_")
 
-        # 1) Fetch jha-chat trace for transcript + form
-        try:
-            jha_trace = self._lf.api.trace.get(trace_id)
-        except Exception:
-            logger.warning("jha-chat trace %s not found", trace_id)
-            jha_trace = None
+        # 1) Fetch jha-chat trace AND judge trace list in parallel
+        jha_trace = None
+        judge_traces = None
+
+        def _fetch_jha():
+            return self._lf.api.trace.get(trace_id)
+
+        def _fetch_judges():
+            return self._lf.api.trace.list(session_id=session_id, limit=100)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            jha_fut = pool.submit(_fetch_jha)
+            judge_fut = pool.submit(_fetch_judges)
+            try:
+                jha_trace = jha_fut.result()
+            except Exception:
+                logger.warning("jha-chat trace %s not found", trace_id)
+            judge_traces = judge_fut.result()
 
         video_name = ""
         video_url: str | None = None
@@ -459,9 +489,7 @@ class LangfuseProvider(DataProvider):
                 elif obs_name == "gemini-chat" and isinstance(obs_output, dict):
                     form = obs_output
 
-        # 2) Fetch judge traces for this session
-        judge_traces = self._lf.api.trace.list(session_id=session_id, limit=100)
-
+        # 2) Parse judge traces — fetch full traces in parallel
         groundedness: GroundednessResult | None = None
         completeness: CompletenessResult | None = None
         form_groundedness: FormGroundednessResult | None = None
@@ -472,37 +500,43 @@ class LangfuseProvider(DataProvider):
             if t.name in JUDGE_NAME_TO_KEY:
                 judge_by_name.setdefault(t.name, []).append(t)
 
+        # Pick the latest trace per judge, then fetch all full traces in parallel
+        latest_judges: dict[str, Any] = {}
         for judge_name, traces in judge_by_name.items():
             traces.sort(key=lambda x: x.timestamp, reverse=True)
-            latest = traces[0]
+            latest_judges[judge_name] = traces[0]
 
+        def _fetch_judge_detail(judge_name: str, trace_obj: Any) -> tuple[str, Any]:
             try:
-                full_trace = self._lf.api.trace.get(latest.id)
+                full_trace = self._lf.api.trace.get(trace_obj.id)
+                for obs in full_trace.observations or []:
+                    if getattr(obs, "name", None) == judge_name:
+                        return judge_name, getattr(obs, "output", None)
             except Exception:
-                logger.warning("Failed to fetch judge trace %s", latest.id)
-                continue
+                logger.warning("Failed to fetch judge trace %s", trace_obj.id)
+            return judge_name, None
 
-            raw_output = None
-            for obs in full_trace.observations or []:
-                obs_name = getattr(obs, "name", None)
-                if obs_name == judge_name:
-                    raw_output = getattr(obs, "output", None)
-                    break
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futs = [
+                pool.submit(_fetch_judge_detail, jn, tj)
+                for jn, tj in latest_judges.items()
+            ]
+            for fut in futs:
+                judge_name, raw_output = fut.result()
+                key = JUDGE_NAME_TO_KEY[judge_name]
+                cls = KEY_TO_RESULT_CLS[key]
+                result = _parse_output(raw_output, cls)
 
-            key = JUDGE_NAME_TO_KEY[judge_name]
-            cls = KEY_TO_RESULT_CLS[key]
-            result = _parse_output(raw_output, cls)
+                if key == "groundedness":
+                    groundedness = result
+                elif key == "completeness":
+                    completeness = result
+                elif key == "form_groundedness":
+                    form_groundedness = result
+                elif key == "form_completeness":
+                    form_completeness = result
 
-            if key == "groundedness":
-                groundedness = result
-            elif key == "completeness":
-                completeness = result
-            elif key == "form_groundedness":
-                form_groundedness = result
-            elif key == "form_completeness":
-                form_completeness = result
-
-        return SessionDetail(
+        result = SessionDetail(
             id=session_id,
             video_name=video_name,
             evaluated_at=evaluated_at,
@@ -515,6 +549,8 @@ class LangfuseProvider(DataProvider):
             form_groundedness=form_groundedness,
             form_completeness=form_completeness,
         )
+        self._session_detail_cache[session_id] = _CacheEntry(result, self._CACHE_TTL)
+        return result
 
     # ------------------------------------------------------------------
     # Video / thumbnail paths

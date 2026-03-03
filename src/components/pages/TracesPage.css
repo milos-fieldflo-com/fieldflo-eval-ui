@@ -711,3 +711,34 @@
   color: var(--ff-body-gray);
   white-space: nowrap;
 }
+
+/* Refresh button */
+.traces-toolbar .refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--ff-accent-teal);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.traces-toolbar .refresh-btn:hover {
+  background: rgba(1, 189, 174, 0.1);
+}
+
+.traces-toolbar .refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.traces-toolbar .refresh-btn .spinning {
+  animation: refresh-spin 0.8s linear infinite;
+}
+
+@keyframes refresh-spin {
+  to { transform: rotate(360deg); }
+}

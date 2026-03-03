@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -25,6 +26,26 @@ router = APIRouter(prefix="/api/v1", tags=["langfuse-sessions"])
 # Cache the dir index at module level (built once)
 _dir_index: dict[str, Path] | None = None
 
+# ---------------------------------------------------------------------------
+# List cache for langfuse-sessions endpoint (1h TTL)
+# ---------------------------------------------------------------------------
+_CACHE_TTL = 3600  # seconds
+
+
+class _CacheEntry:
+    __slots__ = ("data", "expires_at")
+
+    def __init__(self, data: Any, ttl: float) -> None:
+        self.data = data
+        self.expires_at = time.monotonic() + ttl
+
+    @property
+    def valid(self) -> bool:
+        return time.monotonic() < self.expires_at
+
+
+_list_cache: dict[str, _CacheEntry] = {}
+
 
 def _get_dir_index() -> dict[str, Path]:
     global _dir_index
@@ -40,7 +61,7 @@ def _get_langfuse() -> Langfuse:
         public_key=settings.langfuse_public_key,
         secret_key=settings.langfuse_secret_key,
         host=settings.langfuse_base_url,
-        timeout=30,
+        timeout=90,
     )
 
 
@@ -95,7 +116,16 @@ def _preview(value: Any, max_len: int = 200) -> Optional[str]:
 def list_langfuse_sessions(
     filter: Optional[str] = "jha-chat",
     time_range: Optional[str] = "7d",
+    refresh: bool = False,
 ) -> list[LangfuseSessionSummary]:
+    cache_key = f"{filter}:{time_range}"
+    # Skip cache when refreshing or when eval runs exist (status overlay would be stale)
+    has_active_runs = bool(eval_runner.get_all_runs())
+    if not refresh and not has_active_runs:
+        cached = _list_cache.get(cache_key)
+        if cached and cached.valid:
+            return cached.data
+
     lf = _get_langfuse()
     kwargs: dict[str, Any] = {"limit": 100}
     if filter == "jha-chat":
@@ -167,6 +197,7 @@ def list_langfuse_sessions(
             )
         )
 
+    _list_cache[cache_key] = _CacheEntry(results, _CACHE_TTL)
     return results
 
 

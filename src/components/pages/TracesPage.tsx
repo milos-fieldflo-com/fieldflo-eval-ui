@@ -381,6 +381,7 @@ export function TracesPage() {
   const [filterMode, setFilterMode] = useState<FilterMode>('jha-chat')
   const [timeRange, setTimeRange] = useState('7d')
   const [evaluableOnly, setEvaluableOnly] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [runningTraces, setRunningTraces] = useState<Set<string>>(new Set())
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -437,6 +438,22 @@ export function TracesPage() {
 
     return () => clearInterval(interval)
   }, [sessions, fetchSessions, runningTraces])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      const data = await listLangfuseSessions(
+        filterMode === 'jha-chat' ? 'jha-chat' : undefined,
+        timeRange,
+        true,
+      )
+      setSessions(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Refresh failed')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const handleRun = async (e: React.MouseEvent, traceId: string) => {
     e.stopPropagation() // Don't open the detail modal
@@ -525,6 +542,29 @@ export function TracesPage() {
           <option value="30d">Last 30 days</option>
           <option value="all">All time</option>
         </select>
+        <button
+          className="refresh-btn"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          title="Refresh from Langfuse"
+        >
+          <svg
+            className={refreshing ? 'spinning' : ''}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21.5 2v6h-6" />
+            <path d="M2.5 22v-6h6" />
+            <path d="M3.5 12a9 9 0 0 1 15-6.7L21.5 8" />
+            <path d="M20.5 12a9 9 0 0 1-15 6.7L2.5 16" />
+          </svg>
+        </button>
         <label className="traces-filter-checkbox">
           <input
             type="checkbox"

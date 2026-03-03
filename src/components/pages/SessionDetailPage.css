@@ -118,6 +118,38 @@
   padding: 16px;
 }
 
+/* Refresh button */
+.detail-meta .refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--ff-accent-teal);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  margin-left: auto;
+  transition: background-color 0.15s;
+}
+
+.detail-meta .refresh-btn:hover {
+  background: rgba(1, 189, 174, 0.1);
+}
+
+.detail-meta .refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.detail-meta .refresh-btn .spinning {
+  animation: refresh-spin 0.8s linear infinite;
+}
+
+@keyframes refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Form fields */
 .form-fields {
   display: flex;

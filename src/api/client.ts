@@ -43,13 +43,17 @@ async function fetchApi<T>(
 }
 
 // Evaluations (filesystem-based eval sessions)
-export async function listEvaluations(timeRange?: string): Promise<SessionSummary[]> {
-  const params = timeRange ? `?time_range=${encodeURIComponent(timeRange)}` : ''
-  return fetchApi<SessionSummary[]>(`/api/v1/evaluations${params}`)
+export async function listEvaluations(timeRange?: string, refresh?: boolean): Promise<SessionSummary[]> {
+  const params = new URLSearchParams()
+  if (timeRange) params.set('time_range', timeRange)
+  if (refresh) params.set('refresh', 'true')
+  const qs = params.toString()
+  return fetchApi<SessionSummary[]>(`/api/v1/evaluations${qs ? `?${qs}` : ''}`)
 }
 
-export async function getEvaluation(sessionId: string): Promise<SessionDetail> {
-  return fetchApi<SessionDetail>(`/api/v1/evaluations/${sessionId}`)
+export async function getEvaluation(sessionId: string, refresh?: boolean): Promise<SessionDetail> {
+  const qs = refresh ? '?refresh=true' : ''
+  return fetchApi<SessionDetail>(`/api/v1/evaluations/${sessionId}${qs}`)
 }
 
 // Run evaluation
@@ -62,11 +66,12 @@ export async function runEvaluation(traceId: string): Promise<RunEvalResponse> {
 }
 
 // Langfuse sessions (jha-chat traces)
-export async function listLangfuseSessions(filter?: string, timeRange?: string): Promise<LangfuseSessionSummary[]> {
+export async function listLangfuseSessions(filter?: string, timeRange?: string, refresh?: boolean): Promise<LangfuseSessionSummary[]> {
   const params = new URLSearchParams()
   if (filter != null) params.set('filter', filter)
   else params.set('filter', '')
   if (timeRange) params.set('time_range', timeRange)
+  if (refresh) params.set('refresh', 'true')
   return fetchApi<LangfuseSessionSummary[]>(`/api/v1/langfuse-sessions?${params}`)
 }
 

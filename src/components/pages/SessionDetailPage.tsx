@@ -98,6 +98,7 @@ export function SessionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('transcript')
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     if (!sessionId) return
@@ -106,6 +107,19 @@ export function SessionDetailPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [sessionId])
+
+  const handleRefresh = async () => {
+    if (!sessionId) return
+    setRefreshing(true)
+    try {
+      const data = await getEvaluation(sessionId, true)
+      setSession(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Refresh failed')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -132,6 +146,29 @@ export function SessionDetailPage() {
         <span className="detail-meta-item">
           <strong>Video:</strong> {session.video_name || 'N/A'}
         </span>
+        <button
+          className="refresh-btn"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          title="Refresh from Langfuse"
+        >
+          <svg
+            className={refreshing ? 'spinning' : ''}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21.5 2v6h-6" />
+            <path d="M2.5 22v-6h6" />
+            <path d="M3.5 12a9 9 0 0 1 15-6.7L21.5 8" />
+            <path d="M20.5 12a9 9 0 0 1-15 6.7L2.5 16" />
+          </svg>
+        </button>
       </div>
 
       <div className="detail-tabs">
