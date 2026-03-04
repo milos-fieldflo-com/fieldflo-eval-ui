@@ -5,19 +5,19 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Install backend dependencies
 WORKDIR /app/backend
-COPY evals-ui/backend/pyproject.toml evals-ui/backend/uv.lock* ./
+COPY fieldflo-eval-ui/backend/pyproject.toml fieldflo-eval-ui/backend/uv.lock* ./
 RUN uv sync --frozen 2>/dev/null || uv sync
-COPY evals-ui/backend/ .
+COPY fieldflo-eval-ui/backend/ .
 
 # Install evals package dependencies (for subprocess spawning)
 WORKDIR /app/evals
-COPY evals/pyproject.toml evals/uv.lock* ./
+COPY fieldflo-eval-demo/pyproject.toml fieldflo-eval-demo/uv.lock* ./
 RUN uv sync --frozen 2>/dev/null || uv sync
 
 # Copy only the evals code needed at runtime (no video data)
-COPY evals/evaluators/ ./evaluators/
-COPY evals/run_evals_langfuse.py evals/run_evals.py ./
-COPY evals/resources/jha_json/ ./resources/jha_json/
+COPY fieldflo-eval-demo/evaluators/ ./evaluators/
+COPY fieldflo-eval-demo/run_evals.py ./
+COPY fieldflo-eval-demo/resources/jha_json/ ./resources/jha_json/
 
 # Create dirs that may be needed at runtime
 RUN mkdir -p /app/evals/resources/data /app/evals/results/sessions
@@ -29,4 +29,4 @@ CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "310
 
 # Dev target: includes video data baked into the image
 FROM base AS dev
-COPY evals/resources/data/ /app/evals/resources/data/
+COPY fieldflo-eval-demo/resources/data/ /app/evals/resources/data/

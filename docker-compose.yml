@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: ..
-      dockerfile: evals-ui/backend/Dockerfile
+      dockerfile: fieldflo-eval-ui/backend/Dockerfile
       target: ${BUILD_TARGET:-base}
     ports:
       - "3101:3101"
